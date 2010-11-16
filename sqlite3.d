@@ -341,11 +341,9 @@ public:
 	 * conversion will occur.
 	 */
 	void getRow(T...)(ref T args) {
-		foreach(i, arg; args) {
-		args[i] = mixin("getValue!" ~ typeof(arg).stringof ~ "(i)");
-//		write(arg, " ");
+		foreach(i, ref arg; args) {
+		arg = getValue!(T[i])(i);
 		}
-//		writeln("");
 	}
 
 	string sql() {
