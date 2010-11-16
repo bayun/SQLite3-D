@@ -1,0 +1,20 @@
+SQLite3-D
+
+Only two files:
+* sqlite3_bindings.d - binding for most recent version of SQLite (now it's 3.7.3)
+* sqlite3.d - OO wrapper
+
+I plan to support bindings for next versions of SQLite. Currently
+bindings are mostly untested - only functions needed for OO wrapper was tested and used at all.
+
+OO wrapper supports all basic operations - database open, change content, select values.
+
+I implemented prepare/bind interface, please use it - it is handy and protects from
+SQL errors and attacks.
+
+Currently very small subset of SQLite3 features used - I just do not know what is
+really needed and what is not. Over time I plan to add other fetures thatI (or other people)
+will need.
+
+And if you think that something must be done differently - don't hesitate - fork,
+edit and send pull requests :-)
