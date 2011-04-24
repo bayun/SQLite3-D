@@ -1,7 +1,7 @@
 SQLite3-D
 
 Only two files:
-* sqlite3_bindings.d - binding for most recent version of SQLite (now it's 3.7.3)
+* sqlite3_bindings.d - binding for most recent version of SQLite (now it's 3.7.6.2)
 * sqlite3.d - OO wrapper
 
 I plan to support bindings for next versions of SQLite. Currently
