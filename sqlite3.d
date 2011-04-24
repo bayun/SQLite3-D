@@ -343,8 +343,8 @@ public:
 	 * conversion will occur.
 	 */
 	void getRow(T...)(ref T args) {
-		foreach(i, ref arg; args) {
-		arg = getValue!(T[i])(i);
+		foreach(i, arg; args) {
+		args[i] = getValue!(T[i])(i);
 		}
 	}
 
