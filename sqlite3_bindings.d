@@ -32,6 +32,8 @@ module sqlite3_bindings;
 ** part of the build process.
 */
 
+pragma(lib, "sqlite3");
+
 extern (C) {
 
 /*
@@ -939,7 +941,7 @@ int sqlite3_sleep(int);
 /*
 ** CAPI3REF: Name Of The Folder Holding Temporary Files
 */
-char *sqlite3_temp_directory;
+extern char *sqlite3_temp_directory;
 
 /*
 ** CAPI3REF: Test For Auto-Commit Mode
