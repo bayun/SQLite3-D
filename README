@@ -13,8 +13,10 @@ I implemented prepare/bind interface, please use it - it is handy and protects f
 SQL errors and attacks.
 
 Currently very small subset of SQLite3 features used - I just do not know what is
-really needed and what is not. Over time I plan to add other fetures thatI (or other people)
+really needed and what is not. Over time I plan to add other fetures that I (or other people)
 will need.
 
 And if you think that something must be done differently - don't hesitate - fork,
 edit and send pull requests :-)
+
+Distributed under Boost License 1.0
