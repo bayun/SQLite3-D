@@ -267,7 +267,9 @@ public:
 	 * (either if dataset is exhausted or query do not return anything)
 	 */
 
-	bool step() {
+	bool step(T...)(T args) {
+		if (args.length)
+			bind(args);
 		int result = sqlite3_step(stmt);
 		if (result ==  SQLITE_DONE) {
 			state = State.prepared;
