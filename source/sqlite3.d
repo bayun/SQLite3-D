@@ -61,7 +61,8 @@ class SqliteDatabase
 	 */
 	Sqlite3Statement query(T...)(string sql, T args) {
 		sqlite3_stmt *stmt;
-		int result = sqlite3_prepare_v2(db, &(toStringz(sql))[0], sql.length, &stmt, null);
+		int sqlCommandLength = to!int(sql.length);
+		int result = sqlite3_prepare_v2(db, &(toStringz(sql))[0], sqlCommandLength, &stmt, null);
 		if (result != SQLITE_OK) {
 			throw new Sqlite3Exception(sqlite3_errmsg(db), result);
 		}
@@ -228,7 +229,8 @@ public:
 	 * Bind string (text) value to parameter with index pos
 	 */
 	void bindOne(uint pos, string value) {
-		throwOnError(sqlite3_bind_text(stmt, pos, &toStringz(value)[0], value.length, SQLITE_TRANSIENT));
+		auto sqlValueLength = to!int(value.length);
+		throwOnError(sqlite3_bind_text(stmt, pos, &toStringz(value)[0], sqlValueLength, SQLITE_TRANSIENT));
 	}
 
 	/*
