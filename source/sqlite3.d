@@ -144,7 +144,7 @@ class SqliteDatabase
 	 * return original sqlite handle if somethinf exotic needed... Please, try to use 
 	 * OO-interface istead/
 	 */
-	sqlite3* getDb() {
+	etc.c.sqlite3.sqlite3* getDb() {
 		return this.db;
 	}
 
@@ -160,7 +160,7 @@ class SqliteDatabase
 	/**
 	 * SQLite3 database handle
 	 */
-	private sqlite3* db;
+	private etc.c.sqlite3.sqlite3* db;
 }
 
 
