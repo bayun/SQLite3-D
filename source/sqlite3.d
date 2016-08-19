@@ -10,13 +10,17 @@
 
 module sqlite3;
 
-private import sqlite3_bindings;
-private import std.string;
-private import std.conv;
+import etc.c.sqlite3;
+import std.string;
+import std.conv;
+import std.typecons;
+import std.typetuple;
+import std.traits;
+import std.variant;
 
 private string fromStringz(const char *zString) {
 	int i;
-	for (i = 0; zString[i]; ++i) {};
+	for (i = 0; zString[i]; ++i) {}
 	return to!string(zString[0..i]);
 }
 
@@ -57,7 +61,8 @@ class SqliteDatabase
 	 */
 	Sqlite3Statement query(T...)(string sql, T args) {
 		sqlite3_stmt *stmt;
-		int result = sqlite3_prepare_v2(db, &(toStringz(sql))[0], sql.length, &stmt, null);
+		int sqlCommandLength = to!int(sql.length);
+		int result = sqlite3_prepare_v2(db, &(toStringz(sql))[0], sqlCommandLength, &stmt, null);
 		if (result != SQLITE_OK) {
 			throw new Sqlite3Exception(sqlite3_errmsg(db), result);
 		}
@@ -139,7 +144,7 @@ class SqliteDatabase
 	 * return original sqlite handle if somethinf exotic needed... Please, try to use 
 	 * OO-interface istead/
 	 */
-	sqlite3* getDb() {
+	etc.c.sqlite3.sqlite3* getDb() {
 		return this.db;
 	}
 
@@ -155,7 +160,7 @@ class SqliteDatabase
 	/**
 	 * SQLite3 database handle
 	 */
-	private sqlite3* db;
+	private etc.c.sqlite3.sqlite3* db;
 }
 
 
@@ -224,7 +229,8 @@ public:
 	 * Bind string (text) value to parameter with index pos
 	 */
 	void bindOne(uint pos, string value) {
-		throwOnError(sqlite3_bind_text(stmt, pos, &toStringz(value)[0], value.length, SQLITE_TRANSIENT));
+		auto sqlValueLength = to!int(value.length);
+		throwOnError(sqlite3_bind_text(stmt, pos, &toStringz(value)[0], sqlValueLength, SQLITE_TRANSIENT));
 	}
 
 	/*
@@ -241,6 +247,16 @@ public:
 		foreach(index, arg; args) {
 			bindOne(index + 1, arg);
 		}
+	}
+
+	auto range(Contents)() {
+		RangeThing!Contents rt;
+		rt.stmt = stmt;
+		rt.parent = parent;
+		rt.state = &state;
+		rt.colCount = colCount;
+
+		return rt;
 	}
 	
 	/**
@@ -384,4 +400,131 @@ private:
 	State state;
 	/// holds count of rows in the dataset
 	int colCount;
+}
+
+struct RangeThing(Contents) if(is(Contents == struct)) {
+private:
+	/// Underlying SQLite3 statement handle
+	sqlite3_stmt *stmt;
+	/// Database that created this statement, mainly to use getDb() to get stringified errors
+	SqliteDatabase parent;
+	/// holds curent statemet state - if it's just prepared, have dataset row ready or closed
+	Sqlite3Statement.State* state;
+	/// holds count of rows in the dataset
+	int colCount;
+public:
+	/**
+	 * Tries to return next row from query
+	 * Return true f row returned, or false if no rows returned
+	 * (either if dataset is exhausted or query do not return anything)
+	 */
+
+	void popFront() {
+		int result = sqlite3_step(stmt);
+		if (result ==  SQLITE_DONE) {
+			*state = Sqlite3Statement.State.prepared;
+			sqlite3_reset(stmt);
+			return;
+		}
+		throwOnError(result, SQLITE_ROW);
+		*state = Sqlite3Statement.State.open;
+	}
+
+	/**
+	 * Return true if there is any row ready, false otherwise
+	 */
+	bool empty() {
+		return *state != Sqlite3Statement.State.open;
+	}
+
+	auto front() {
+		Contents recordContent;
+		foreach(ti, ToType; FieldTypeTuple!(Contents))
+		{
+			// Must be broken apart or it will use
+			// get() and fail on enforce
+			auto v = makeValue!ToType(ti);
+			if(!v.isNull)
+				recordContent.tupleof[ti] = v;
+		}
+		return recordContent;
+	}
+
+	T makeValue(T)(uint col) if(isNullable!(T)) {
+		auto valvar = getValue(col);
+		T ret;
+		if(valvar.isNull) {
+			return ret;
+		}
+		auto var = valvar.get();
+		static if(isNullable!(T,long)) {
+			ret = var.get!long;
+		}
+		static if(isNullable!(T,string)) {
+			ret = var.get!string;
+		}
+		return ret;
+	}
+
+	template isNullable(T) {
+		enum isNullable =  __traits(compiles, q{T a; a.isNull(); a.nullify()});
+	}
+
+	template isNullable(T,R) {
+		static if(!__traits(compiles, q{T a; a.isNull(); a.nullify()}))
+			enum isNullable = false;
+		else {
+			static if(is(ReturnType!(T.get) : R))
+				enum isNullable = true;
+			else
+				enum isNullable = false;
+		}
+	}
+
+	unittest {
+		static assert(isNullable!(Nullable!long, long));
+		static assert(isNullable!(Nullable!string, string));
+		static assert(!isNullable!(string, string));
+		static assert(!isNullable!(string, long));
+	}
+
+
+	Nullable!Variant getValue(uint col) {
+		checkValueRequest(col);
+		Nullable!Variant ret;
+		if(sqlite3_column_type(stmt, col) == SQLITE_NULL) {
+			// Will return a null ret
+		} else if(sqlite3_column_type(stmt, col) == SQLITE_INTEGER)
+			ret = Variant(sqlite3_column_int64(stmt, col));
+		else if(sqlite3_column_type(stmt, col) == SQLITE_FLOAT)
+			ret = Variant(sqlite3_column_double(stmt, col));
+		else if(sqlite3_column_type(stmt, col) == SQLITE_BLOB)
+			assert(0, "Blob not supported");
+		else if(sqlite3_column_type(stmt, col) == SQLITE3_TEXT) {
+			auto text = sqlite3_column_text(stmt, col);
+			int count = sqlite3_column_bytes(stmt, col);
+			ret = Variant(to!string(text[0..count]));
+		}
+		return ret;
+	}
+
+	/**
+	 * Checks, if there is row and if column index is correct, because
+	 * else SQLite gives undefined behavior
+	 */
+	void checkValueRequest(uint col) {
+		if (col >= colCount)
+			throw new Sqlite3Exception("Invalid column index:" ~to!string(col));
+		if (empty)
+			throw new Sqlite3Exception("There is no row ready");
+	}
+
+	/**
+	 * Utility function to simplify SQLite3 function call result checking
+	 */
+	void throwOnError(int result, int okStatus = SQLITE_OK) {
+		if(result != okStatus) {
+			throw new Sqlite3Exception(sqlite3_errmsg(parent.getDb()), result);
+		}
+	}
 }
